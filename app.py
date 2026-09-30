@@ -1,19 +1,40 @@
 from flask import Flask, request
-import google.generativeai as genai
-import os
+import requests
+
 app = Flask(__name__)
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+
+VERIFY_TOKEN = "alex123"
+WHATSAPP_TOKEN = "Aca_va_tu_token_de_Meta"
+PHONE_NUMBER_ID = "Aca_va_tu_phone_id"
+
+@app.route("/whatsapp", methods=["GET"])
+def verify():
+    if request.args.get("hub.verify_token") == VERIFY_TOKEN:
+        return request.args.get("hub.challenge")
+    return "Error", 403
+
 @app.route("/whatsapp", methods=["POST"])
-def whatsapp():
-    from twilio.twiml.messaging_response import MessagingResponse
-    incoming_msg = request.values.get('Body', '')
+def webhook():
+    data = request.json
     try:
-        response = model.generate_content(f"Responde corto en español paraguayo: {incoming_msg}")
-        answer = response.text[:1500]
-    except Exception as e:
-        answer = "Error con la API KEY, revisala en Render"
-    twiml = MessagingResponse()
-    twiml.message(answer)
-    return str(twiml)
+        msg = data['entry'][0]['changes'][0]['value']['messages'][0]
+        from_num = msg['from']
+        text = msg['text']['body']
+
+        # Aca va la respuesta de tu bot
+        respuesta = f"Hola, recibi: {text}"
+
+        url = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
+        headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": from_num,
+            "text": {"body": respuesta}
+        }
+        requests.post(url, json=payload, headers=headers)
+    except:
+        pass
+    return "ok", 200
+
+if __name__ == "__main__":
+    app.run()
